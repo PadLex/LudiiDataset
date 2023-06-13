@@ -1,20 +1,29 @@
+import os
 import re
 
-class game:
+class Game:
     def __init__(self, description: str):
         self.description = description
         self.name = re.search(r'game "(.+)"', description).group(1)
 
-    def get_game(self, option: dict):
+        self.option_groups = []
+        for extract in find_ludemes(self.description, "option"):
+            self.option_groups.append(parse_option(extract))
+
+        self.local_definitions = []
+        for extract in find_ludemes(self.description, "define"):
+            self.local_definitions.append(extract)
+
+    def get_game(self, selected_options: list):
         start = self.description.index("(game")
         end = closing_bracket(self.description, start)
         game_str = self.description[start:end].strip()
 
-        for key, value in option.items():
-            game_str = game_str.replace(key, value)
+        for option in selected_options:
+            for key, value in option.items():
+                game_str = game_str.replace(key, value)
 
-        return game_str
-
+        return game_str.strip()
 
 def parse_option(extract):
     groups = re.search(r'\(option(\s+)"(.+)"(\s+)<(.+)>(\s+)args:\{(.+)\}', extract).groups()
@@ -41,8 +50,6 @@ def parse_option(extract):
     return options
 
 
-
-
 def find_ludemes(text: str, ludeme: str):
     sections = []
     while True:
@@ -62,7 +69,6 @@ def find_ludemes(text: str, ludeme: str):
     return extracts
 
 
-
 def closing_bracket(text, start):
     count = 0
     for i in range(start, len(text)):
@@ -74,11 +80,30 @@ def closing_bracket(text, start):
             return i+1
     return -1
 
+
+def get_games(game_dirs):
+    games = []
+
+    for game_dir in game_dirs:
+        for dirpath, dirnames, filenames in os.walk(game_dir):
+            for filename in filenames:
+                if filename.endswith(".lud"):
+                    with open(os.path.join(dirpath, filename), "r") as f:
+                        games.append(Game(f.read()))
+
+    return games
+
 if __name__ == "__main__":
     with open("/Users/alex/Documents/Marble/Ludii/Common/res/lud/board/hunt/Hat Diviyan Keliya.lud", "r") as f:
         text = f.read()
 
-        print(parse_option(text))
+        game = Game(text)
+        print(game.name, '\n\n')
+        for option_group in game.option_groups:
+            print(option_group, '\n')
+
+        print('\n\n', game.local_definitions, '\n\n')
+        print(game.get_game([option_group[list(option_group.keys())[0]] for option_group in game.option_groups]))
 
         # for extract in find_ludemes(text, "option"):
         #     print(extract)

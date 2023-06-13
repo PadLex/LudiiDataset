@@ -23,17 +23,15 @@ def parse_definition(content):
     examples = [example for example in examples if example != f'("{name}")']
 
     ludii_code = content[content.index("(define"):].strip()
-    ludii_code = re.sub("\s+", " ", ludii_code)
 
-    anonymized_code = ludii_code.replace(name, "Anonymous")
+    #anonymized_code = ludii_code.replace(name, "Anonymous")
 
     return {
         'name': name,
         'description': description,
         'parameters_descriptions': parameters_descriptions,
         'examples': examples,
-        'ludii_code': ludii_code,
-        'anonymized_code': anonymized_code
+        'ludii_code': ludii_code
     }
 
 
