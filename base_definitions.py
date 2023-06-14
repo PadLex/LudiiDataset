@@ -14,7 +14,7 @@ def get_base_definitions(definition_dir):
 
 
 def parse_definition(content):
-    print(content)
+    #print(content)
     name = re.search(r'define "(.+)"', content).group(1)
     description = re.search(r'// (.+)', content).group(1)
     parameters_descriptions = re.findall(r'// #\d+ = (.+)', content)
@@ -24,7 +24,10 @@ def parse_definition(content):
 
     ludii_code = content[content.index("(define"):].strip()
 
-    #anonymized_code = ludii_code.replace(name, "Anonymous")
+    if len(description) < 20:
+        print(f"Description too short: {description}")
+
+    #anonymized_code = file_string.replace(name, "Anonymous")
 
     return {
         'name': name,
@@ -36,6 +39,5 @@ def parse_definition(content):
 
 
 if __name__ == "__main__":
-    for definition in get_base_definitions():
-        print(definition)
-        print()
+    for definition in get_base_definitions("/Users/alex/Documents/Marble/Ludii/Common/res/def"):
+        print(definition, '\n')
