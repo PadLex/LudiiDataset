@@ -3,17 +3,17 @@ import re
 
 class Game:
     def __init__(self, file_string: str):
-        file_string = re.sub(r'//.*', '', file_string)  # Remove comments
         self.file_string = file_string
-        self.name = re.search(r'game "(.+)"', file_string).group(1)
+        self.file_clean = re.sub(r'//.*', '', file_string)  # Remove comments
+        self.name = re.search(r'game "(.+)"', self.file_clean).group(1)
 
         self.option_groups = []
-        extracts = find_ludemes(self.file_string, "option")
+        extracts = find_ludemes(self.file_clean, "option")
         for extract in extracts:
-            self.option_groups.append(parse_option(self.file_string, extract))
+            self.option_groups.append(parse_option(self.file_clean, extract))
 
         self.local_definitions = []
-        for extract in find_ludemes(self.file_string, "define"):
+        for extract in find_ludemes(self.file_clean, "define"):
             self.local_definitions.append(extract)
 
         #print("\n\n\n\n\n++++++++++++\n", self.file_string, "\n+++++++++++")
@@ -27,10 +27,13 @@ class Game:
         if rules:
             self.description += rules.group(1)
 
-    def get_game(self, selected_options: list):
-        start = self.file_string.index("(game")
-        end = closing_bracket(self.file_string, start)
-        game_str = self.file_string[start:end].strip()
+    def get_game(self, selected_options=None):
+        start = self.file_clean.index("(game")
+        end = closing_bracket(self.file_clean, start)
+        game_str = self.file_clean[start:end].strip()
+
+        if selected_options is None:
+            selected_options = [group[0] for group in self.option_groups]
 
         for option in selected_options:
             for key, value in option["items"].items():
@@ -50,15 +53,15 @@ def count_asterisks(original_text, extract):
     return count
 
 
-def parse_option(file_string, extract):
+def parse_option(file_clean, extract):
     groups = re.search(r'\(option\s+\"(.+)\"\s+<(.+)>\s+args:\s*\{(.+?)\}', extract, re.DOTALL).groups()
-    #groups = [groups for groups in groups if groups.strip()]
+    groups = [groups for groups in groups if groups.strip()]
     name = groups[0]
     key = groups[1]
     categories = re.findall(r'<(.+?)>', groups[2], re.DOTALL)
 
     item_extracts = find_ludemes(extract, "item")
-    #sorted(item_extracts, key=lambda extract: count_asterisks(file_string, extract))
+    #sorted(item_extracts, key=lambda extract: count_asterisks(file_clean, extract))
 
     options = []
     for item_extract in item_extracts:
@@ -78,7 +81,7 @@ def parse_option(file_string, extract):
             raise Exception("Number of items and categories does not match")
 
         for item, category in zip(items, categories):
-            option[f'<{key}:{category}>'] = item.strip()
+            option["items"][f'<{key}:{category}>'] = item.strip()
 
         options.append(option)
 
