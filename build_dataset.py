@@ -10,16 +10,11 @@ games_dirs = ["/res/lud/board", "/res/lud/experimental", "/res/lud/math", "/res/
 
 exclude_matches = False
 shorten_spaces = True
+dataset_format = ["instruction/input/output", "question/response"][1]
+validation_split = 0
 
-max_imbalance = 5
-
-dataset = []
-
-
-def base_definition_questions(explain=0.2):
-    base_definitions = get_base_definitions(common_dir + definition_dir)
-    random.shuffle(base_definitions)
-
+def base_definition_questions(base_definitions, explain=0.2):
+    dataset = []
     cutoff = int(len(base_definitions) * explain)
     for base_definition in base_definitions[:cutoff]:
         dataset.append({
@@ -33,10 +28,11 @@ def base_definition_questions(explain=0.2):
             "input": base_definition["description"],
             "output": base_definition["ludii_code"]})
 
+    return dataset
 
-def game_questions(explain_game=0.2, generate_local_definitions=0.2):
-    games = get_games([common_dir + game_dir for game_dir in games_dirs])
-    random.shuffle(games)
+
+def game_questions(games, explain_game=0.2):
+    dataset = []
 
     explain_game_cutoff = int(len(games) * explain_game)
     for game in games[:explain_game_cutoff]:
@@ -51,13 +47,13 @@ def game_questions(explain_game=0.2, generate_local_definitions=0.2):
         dataset.append({
             "instruction": "Construct a Ludii game based on the following description",
             "input": game.description + " " + " ".join(map(lambda option: option["description"], options)),
-            "output": game.get_game(options)})
+            "output": game.get_game(options).replace(game.name, "Unnamed")})
+
+    return dataset
 
 
-def game_definitions():
-    games = get_games([common_dir + game_dir for game_dir in games_dirs])
-    random.shuffle(games)
-
+def game_definitions(games):
+    dataset = []
     for game in games:
         if len(game.local_definitions) > 1:
             dataset.append({
@@ -65,11 +61,11 @@ def game_definitions():
                 "input": game.get_game(),
                 "output": "\n".join(game.local_definitions)})
 
+    return dataset
 
-def game_options():
-    games = get_games([common_dir + game_dir for game_dir in games_dirs])
-    random.shuffle(games)
 
+def game_options(games):
+    dataset = []
     for game in games:
         options_one = []
         options_two = []
@@ -88,17 +84,39 @@ def game_options():
                 "input": game.get_game(options_one),
                 "output": game.get_game(options_two)
             })
+    return dataset
 
+
+def build_dataset(base_definitions, games):
+    dataset = []
+    dataset.extend(base_definition_questions(base_definitions))
+    dataset.extend(game_questions(games))
+    dataset.extend(game_definitions(games))
+    dataset.extend(game_options(games))
+    random.shuffle(dataset)
+
+    if dataset_format == "question/response":
+        for data in dataset:
+            data["question"] = data.pop("instruction") + "\n\n" + data.pop("input")
+            data["response"] = data.pop("output")
+
+    return dataset
 
 
 if __name__ == "__main__":
-    base_definition_questions()
-    game_questions()
-    game_definitions()
-    game_options()
+    base_definitions = get_base_definitions(common_dir + definition_dir)
+    random.shuffle(base_definitions)
+    games = get_games([common_dir + game_dir for game_dir in games_dirs])
+    random.shuffle(games)
 
-    random.shuffle(dataset)
+    definition_cutoff = int(len(base_definitions) * (1 - validation_split))
+    game_cutoff = int(len(games) * (1 - validation_split))
+    training_dataset = build_dataset(base_definitions[:definition_cutoff], games[:game_cutoff])
+    validation_dataset = build_dataset(base_definitions[definition_cutoff:], games[game_cutoff:])
 
-    with open("dataset.json", "w") as f:
-        json.dump(dataset, f, indent=4)
+    with open("train.json", "w") as f:
+        json.dump(training_dataset, f, indent=4)
+
+    with open("test.json", "w") as f:
+        json.dump(validation_dataset, f, indent=4)
 
